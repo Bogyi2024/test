@@ -1,0 +1,62 @@
+# Place this file at: .github/workflows/test-login.yml in the SAME repo as
+# test_login.py (e.g. Bogyi2024/rapidgator), then run it from the Actions tab
+# with "Run workflow".
+#
+# Purpose: isolate and confirm/refute the diagnosis from the earlier run log
+# ("Rapidgator is TLS-fingerprint/IP blocking the login request") WITHOUT
+# running the real download/upload pipeline. It only hits /user/login (and a
+# bare TLS handshake) via three backends and reports results - nothing is
+# downloaded, nothing is uploaded, nothing is written back to Rapidgator or
+# Hugging Face.
+#
+# Inputs mirror the production workflow's naming (rg_email/rg_password/
+# rg_links) so you can reuse the same saved values; rg_links here only needs
+# ONE url (used for informational extract_file_id context, not downloaded).
+
+name: Test Rapidgator Login (diagnostic only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      rg_email:
+        description: 'Rapidgator username/email'
+        required: true
+        type: string
+      rg_password:
+        description: 'Rapidgator password'
+        required: true
+        type: string
+      rg_link:
+        description: 'Any Rapidgator file URL (not downloaded - login test only)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  test_login:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies (requests + curl_cffi, no aria2/no HF needed)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --no-cache-dir requests curl_cffi
+
+      - name: Run isolated login diagnostic
+        env:
+          RG_EMAIL: ${{ github.event.inputs.rg_email }}
+          RG_PASSWORD: ${{ github.event.inputs.rg_password }}
+          RG_LINK: ${{ github.event.inputs.rg_link }}
+        run: |
+          python -u test_login.py
