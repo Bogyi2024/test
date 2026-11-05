@@ -1,0 +1,59 @@
+# Place this at: .github/workflows/test-login-v2.yml in the SAME test repo
+# you've been using (Bogyi2024/test), next to test_login_v2.py.
+#
+# This tests ONLY the new dual-backend rg_get() fallback logic from
+# rpgx_fixed.py - no download, no HF upload, nothing touches production.
+#
+# Two ways to run it from the Actions tab -> "Run workflow":
+#   1. Leave "force_fail_backend" empty -> normal test, whichever backend
+#      the runner's current IP prefers will just work (like test_login.py).
+#   2. Set "force_fail_backend" to "requests" -> simulates requests being
+#      blocked, to PROVE the code actually falls back to curl_cffi and
+#      still logs in successfully, instead of just trusting the diff.
+
+name: Test Dual-Backend Login Fallback (diagnostic only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      rg_email:
+        description: 'Rapidgator email'
+        required: true
+        type: string
+      rg_password:
+        description: 'Rapidgator password'
+        required: true
+        type: string
+      force_fail_backend:
+        description: 'Simulate this backend failing (requests | curl_cffi | leave empty for normal test)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  test_login_v2:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies (requests + curl_cffi, no aria2/no HF needed)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --no-cache-dir requests curl_cffi
+
+      - name: Run dual-backend fallback diagnostic
+        env:
+          RG_EMAIL: ${{ github.event.inputs.rg_email }}
+          RG_PASSWORD: ${{ github.event.inputs.rg_password }}
+          FORCE_FAIL_BACKEND: ${{ github.event.inputs.force_fail_backend }}
+        run: |
+          python -u test_login_v2.py
