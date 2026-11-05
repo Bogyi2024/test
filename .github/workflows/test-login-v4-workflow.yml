@@ -1,0 +1,70 @@
+# Place this at: .github/workflows/test-login-v4.yml in the same test repo
+# (Bogyi2024/test), next to test_login_v4.py.
+#
+# Runs the full chain AND an actual aria2c download (same flags as
+# rpgx_fixed.py), but stops before any Hugging Face upload and deletes the
+# test file afterward so it doesn't fill runner disk or touch your repo.
+#
+# Safety: MAX_TEST_MB (default 2000) refuses to download anything bigger,
+# to avoid accidentally burning a full multi-GB transfer on a test run.
+# Raise it explicitly if you want to test a bigger part.
+
+name: Test Real Download With Aria2 (diagnostic only, no HF upload)
+
+on:
+  workflow_dispatch:
+    inputs:
+      rg_email:
+        description: 'Rapidgator email'
+        required: true
+        type: string
+      rg_password:
+        description: 'Rapidgator password'
+        required: true
+        type: string
+      rg_link:
+        description: 'A real Rapidgator file link, e.g. https://rapidgator.net/file/.../Name.part1.rar.html'
+        required: true
+        type: string
+      force_fail_backend:
+        description: 'Simulate this backend failing on every API call (requests | curl_cffi | leave empty for normal test)'
+        required: false
+        type: string
+        default: ''
+      max_test_mb:
+        description: 'Refuse to download files larger than this many MB (safety cap)'
+        required: false
+        type: string
+        default: '2000'
+
+permissions:
+  contents: read
+
+jobs:
+  test_login_v4:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install System Dependencies (aria2 + requests + curl_cffi)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y aria2
+          python -m pip install --upgrade pip
+          python -m pip install --no-cache-dir requests curl_cffi
+
+      - name: Run real-download diagnostic (login, file info, aria2c download, cleanup)
+        env:
+          RG_EMAIL: ${{ github.event.inputs.rg_email }}
+          RG_PASSWORD: ${{ github.event.inputs.rg_password }}
+          RG_LINK: ${{ github.event.inputs.rg_link }}
+          FORCE_FAIL_BACKEND: ${{ github.event.inputs.force_fail_backend }}
+          MAX_TEST_MB: ${{ github.event.inputs.max_test_mb }}
+        run: |
+          python -u test_login_v4.py
