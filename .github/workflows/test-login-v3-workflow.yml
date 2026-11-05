@@ -1,0 +1,59 @@
+# Place this at: .github/workflows/test-login-v3.yml in the same test repo
+# (Bogyi2024/test), next to test_login_v3.py.
+#
+# Tests the FULL Rapidgator API chain (login -> file info -> download URL
+# -> HEAD check that the URL is live) using a real rg_link, WITHOUT the
+# multi-GB aria2 download and WITHOUT touching Hugging Face. Safe to run
+# repeatedly against real .rar part links.
+
+name: Test Full Chain With RG Link (diagnostic only, no download/upload)
+
+on:
+  workflow_dispatch:
+    inputs:
+      rg_email:
+        description: 'Rapidgator email'
+        required: true
+        type: string
+      rg_password:
+        description: 'Rapidgator password'
+        required: true
+        type: string
+      rg_link:
+        description: 'A real Rapidgator file link, e.g. https://rapidgator.net/file/.../Name.part1.rar.html'
+        required: true
+        type: string
+      force_fail_backend:
+        description: 'Simulate this backend failing on every call (requests | curl_cffi | leave empty for normal test)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  test_login_v3:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies (requests + curl_cffi, no aria2/no HF needed)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --no-cache-dir requests curl_cffi
+
+      - name: Run full-chain diagnostic (login, file info, download URL, HEAD check)
+        env:
+          RG_EMAIL: ${{ github.event.inputs.rg_email }}
+          RG_PASSWORD: ${{ github.event.inputs.rg_password }}
+          RG_LINK: ${{ github.event.inputs.rg_link }}
+          FORCE_FAIL_BACKEND: ${{ github.event.inputs.force_fail_backend }}
+        run: |
+          python -u test_login_v3.py
