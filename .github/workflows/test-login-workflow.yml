@@ -37,7 +37,7 @@ permissions:
 
 jobs:
   test_login:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 10
     steps:
       - name: Checkout Repository
